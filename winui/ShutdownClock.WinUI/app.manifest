@@ -7,7 +7,7 @@
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
         <!--
           关机 / 重启 / 休眠都需要 SeShutdownPrivilege。
-          以普通用户身份调用时，在部分环境下系统会直接返回"拒绝访问(5)"，
+          以普通用户身份调用时，部分环境下系统会直接返回"拒绝访问(5)"，
           因此在清单里声明必须提权，启动时由 UAC 确认一次。
         -->
         <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />

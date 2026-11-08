@@ -2,11 +2,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShutdownClock", "src\ShutdownClock\ShutdownClock.csproj", "{A1B2C3D4-1111-4A2B-9C3D-000000000001}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShutdownClock.Core", "src\ShutdownClock.Core\ShutdownClock.Core.csproj", "{A1B2C3D4-1111-4A2B-9C3D-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShutdownClock.Tests", "tests\ShutdownClock.Tests\ShutdownClock.Tests.csproj", "{A1B2C3D4-1111-4A2B-9C3D-000000000002}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShutdownClock.WinUI", "winui\ShutdownClock.WinUI\ShutdownClock.WinUI.csproj", "{A1B2C3D4-1111-4A2B-9C3D-000000000002}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShutdownClock.Verify", "tests\ShutdownClock.Verify\ShutdownClock.Verify.csproj", "{A1B2C3D4-1111-4A2B-9C3D-000000000003}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShutdownClock.Tests", "tests\ShutdownClock.Tests\ShutdownClock.Tests.csproj", "{A1B2C3D4-1111-4A2B-9C3D-000000000003}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

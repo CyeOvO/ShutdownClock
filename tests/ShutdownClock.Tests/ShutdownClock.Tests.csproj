@@ -8,6 +8,6 @@
     <RootNamespace>ShutdownClock.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ShutdownClock\ShutdownClock.csproj" />
+    <ProjectReference Include="..\..\src\ShutdownClock.Core\ShutdownClock.Core.csproj" />
   </ItemGroup>
 </Project>

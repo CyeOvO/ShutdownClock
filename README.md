@@ -1,6 +1,6 @@
-# ShutdownClock · 定时关机
+# ShutdownClock · 定时关机（WinUI 3）
 
-一个 Windows 桌面小工具：选好时间，到点自动**关机 / 重启 / 休眠 / 睡眠**。
+一个 Windows 桌面小工具：选好时间，到点自动**关机 / 重启 / 休眠 / 睡眠**。界面使用 **WinUI 3** 构建，跟随 Windows 11 原生视觉风格。
 倒计时小窗可以缩到很小、贴在屏幕角落，随时能看到时间在流逝，又不会挡着工作。
 
 > 这是把「定时关机」和「休眠倒计时」两个小工具合并重做的一版，界面与实现全部重写。
@@ -15,6 +15,7 @@
   - 也可以点快捷按钮：5 / 15 / 30 / 60 / 120 分钟
 - **三种倒计时样式**：大号数字、进度环、极简文字
 - **跟随系统深浅色**：深色模式深底白字，浅色模式白底深字，不会出现白底白字
+- **WinUI 3 + Mica 材质**：支持时自动套用半透明亚克力背景，标题栏与控件为原生风格
 - **悬浮小窗**
   - 始终置顶，可拖到屏幕任意角落
   - 支持缩到 220×100，不遮挡工作区
@@ -27,11 +28,14 @@
 ## 运行要求
 
 - Windows 10 / 11（x64）
-- 无需安装 .NET 运行时（发布包为自包含单文件）
+- 无需安装 .NET 运行时，也无需预装 Windows App Runtime（发布包为自包含）
 
 ## 下载使用
 
-到 [Releases](../../releases) 下载 `ShutdownClock.exe`，双击运行。
+到 [Releases](../../releases) 下载压缩包，解压后双击 `ShutdownClock.exe` 运行。
+
+> WinUI 3 应用依赖一组原生 DLL（Windows App SDK 运行时），因此发布的是**整个目录**而不是单文件。
+> 解压后请不要只拷走 exe，需要连同同目录的文件一起使用。
 
 > 程序会请求管理员权限（UAC 确认一次）。关机、重启、休眠都需要 `SeShutdownPrivilege`，
 > 普通权限下部分环境会直接返回「拒绝访问(5)」，所以清单里声明为 `requireAdministrator`。
@@ -46,42 +50,39 @@ dotnet build ShutdownClock.sln -c Release
 
 运行测试：
 
-'```bash
+```bash
 # 核心逻辑测试（30 项）
 dotnet run --project tests/ShutdownClock.Tests
+```
 
-# 本次改动验证（20 项：样式枚举、窗口关闭语义、进度环几何、主题对比度）
-dotnet run --project tests/ShutdownClock.Verify
-```'
-
-发布单文件 exe：
+发布自包含目录：
 
 ```bash
-dotnet publish src/ShutdownClock/ShutdownClock.csproj -c Release -r win-x64 \
-  --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+dotnet publish winui/ShutdownClock.WinUI/ShutdownClock.WinUI.csproj -c Release -r win-x64 --self-contained true -p:WindowsAppSDKSelfContained=true -o publish
 ```
 
 ## 项目结构
 
 ```
 ShutdownClock/
-├─ src/ShutdownClock/
+├─ src/ShutdownClock.Core/        与界面无关的核心逻辑（可单测）
 │  ├─ Models/
-│  │  ├─ PowerAction.cs       动作枚举与显示名
-│  │  ├─ TimeInputParser.cs   时间输入解析
-│  │  └─ ScheduledTask.cs     定时任务与倒计时状态
-│  ├─ Services/
-│  │  ├─ NativePower.cs        Win32 关机 / 挂起 API
-│  │  ├─ PowerService.cs       电源操作入口（API + shutdown.exe 双路径）
-│  │  ├─ ElevationService.cs   管理员权限检测与提权
-│  │  └─ Theme.cs              跟随系统深浅色的配色
+│  │  ├─ PowerAction.cs           动作枚举与显示名
+│  │  ├─ TimeInputParser.cs       时间输入解析
+│  │  └─ ScheduledTask.cs         定时任务与倒计时状态
+│  └─ Services/
+│     ├─ NativePower.cs           Win32 关机 / 挂起 API
+│     ├─ PowerService.cs          电源操作入口（API + shutdown.exe 双路径）
+│     └─ ElevationService.cs      管理员权限检测与提权
+├─ winui/ShutdownClock.WinUI/     WinUI 3 界面层
 │  ├─ Views/
-│  │  ├─ MainWindow.xaml       设置界面
-│  │  └─ FloatingClockWindow.xaml  悬浮倒计时小窗
-│  └─ app.manifest             DPI 感知 + requireAdministrator
-└─ tests/
-   ├─ ShutdownClock.Tests/    核心逻辑测试（不依赖测试框架）
-   └─ ShutdownClock.Verify/   界面与主题改动的验证
+│  │  ├─ MainWindow.xaml          设置界面
+│  │  └─ FloatingClockWindow.xaml 悬浮倒计时小窗
+│  ├─ Services/
+│  │  ├─ Theme.cs                 跟随系统深浅色的配色
+│  │  └─ WindowHelper.cs          窗口尺寸 / Mica / 置顶 / 贴角
+│  └─ app.manifest                DPI 感知 + requireAdministrator
+└─ tests/ShutdownClock.Tests/     核心逻辑测试（30 项，不依赖测试框架）
 ```
 
 ## 实现要点
