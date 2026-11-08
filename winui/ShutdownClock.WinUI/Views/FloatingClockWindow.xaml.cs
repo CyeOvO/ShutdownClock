@@ -16,6 +16,21 @@ public sealed partial class FloatingClockWindow : Window
     private const double RingSize = 150;
     private const double RingThickness = 10;
 
+    // 正常尺寸
+    private const int NormalWidth = 420;
+    private const int NormalHeight = 190;
+
+    // 缩小尺寸：做成扁长条，让数字在有限面积里尽量大
+    private const int ShrunkWidth = 300;
+    private const int ShrunkHeight = 110;
+
+    /// <summary>
+    /// 缩小态的基准字号。Viewbox 会按 min(可用宽/420, 可用高/120) 等比缩放，
+    /// 所以这里同步把主体 Grid 的基准高度调大，避免先把数字撑爆再被压回去。
+    /// </summary>
+    private const double ShrunkFontSize = 72;
+    private const double ShrunkCanvasHeight = 80;
+
     private System.Threading.Timer? _ticker;
     private CountdownStyle _style = CountdownStyle.BigDigits;
     private bool _isShrunk;
@@ -102,6 +117,10 @@ public sealed partial class FloatingClockWindow : Window
             CountdownStyle.ProgressRing => "进度环",
             _ => "极简"
         };
+
+        // 缩小态下状态行始终隐藏，切样式后要保持一致
+        if (_isShrunk)
+            StatusText.Visibility = Visibility.Collapsed;
     }
 
     private void Refresh()
@@ -194,8 +213,24 @@ public sealed partial class FloatingClockWindow : Window
         _closedByOwner = true;
         _ticker?.Dispose();
         _ticker = null;
-        try { Close(); } catch { }
+
+        // 先隐藏再关：主窗口正在退出时消息泵可能已经不可靠，
+        // 先藏起来能保证用户无论如何都看不到一个关不掉的残留窗口。
+        try
+        {
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            _ = ShowWindow(hwnd, SW_HIDE);
+        }
+        catch { }
+
+        try { Close(); }
+        catch { }
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private const int SW_HIDE = 0;
 
     // ---------- 交互 ----------
 
@@ -233,23 +268,77 @@ public sealed partial class FloatingClockWindow : Window
         CancelRequested?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// 撤单：直接调用系统 API 撤销已排定的关机 / 重启。
+    /// 关机 / 重启是交给系统计时的，本程序关掉也不影响；
+    /// 所以这里提供一个不依赖主窗口的撤销入口。
+    /// 休眠 / 睡眠是本程序自己计时，撤销等价于取消任务。
+    /// </summary>
+    private void OnAbortSystem(object sender, RoutedEventArgs e)
+    {
+        var task = Task;
+        var isSystem = task?.Action.UsesSystemTimer() ?? false;
+
+        if (isSystem)
+        {
+            if (PowerService.AbortSystemShutdown(out var err))
+                StatusText.Text = "已撤销系统排定的关机 / 重启";
+            else
+                StatusText.Text = string.IsNullOrWhiteSpace(err) ? "没有可撤销的系统关机" : err;
+
+            StatusText.Visibility = Visibility.Visible;
+            return;
+        }
+
+        // 休眠 / 睡眠：走取消流程，由主窗口统一收尾
+        CancelRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     private void OnShrink(object sender, RoutedEventArgs e)
     {
+        // 缩小后窗口只有 240 宽，主体按 Viewbox 等比缩到约一半，
+        // 原本 64px 的数字肉眼几乎看不清，所以换一套更紧凑的排版：
+        // 状态行隐藏，顶部栏改为"鼠标移入才浮现"，把空间让给数字。
         if (!_isShrunk)
         {
             _isShrunk = true;
-            WindowHelper.SetSize(this, 220, 100);
+            WindowHelper.SetSize(this, ShrunkWidth, ShrunkHeight);
             WindowHelper.MoveToCorner(this);
+
+            StatusText.Visibility = Visibility.Collapsed;
+            RootBorder.Padding = new Thickness(10, 4, 10, 4);
+
+            // 让 Viewbox 按我们指定的基准算缩放：基准高矮一点，数字就能大一点
+            ClockCanvas.Height = ShrunkCanvasHeight;
+            BigDigits.FontSize = ShrunkFontSize;
+            RingText.FontSize = ShrunkFontSize;
+            MinimalText.FontSize = ShrunkFontSize;
+
+            // 顶部栏不能彻底隐藏，否则没有入口点"放大"；
+            // 改成默认透明、鼠标移入才出现。
             SetBarOpacity(0);
+
             MinButton.Content = "放大";
         }
         else
         {
             _isShrunk = false;
-            WindowHelper.SetSize(this, 420, 190);
+            WindowHelper.SetSize(this, NormalWidth, NormalHeight);
             WindowHelper.MoveToCorner(this);
+
+            StatusText.Visibility = Visibility.Visible;
+            RootBorder.Padding = new Thickness(8);
             SetBarOpacity(1);
+
+            ClockCanvas.Height = 120;
+            BigDigits.FontSize = 64;
+            RingText.FontSize = 26;
+            MinimalText.FontSize = 22;
+
             MinButton.Content = "－";
         }
+
+        // 字号变了，弧线与外框要按新尺寸重算一次
+        Refresh();
     }
 }

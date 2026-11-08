@@ -14,6 +14,7 @@ public sealed partial class MainWindow : Window
     private FloatingClockWindow? _clock;
     private ScheduledTask? _task;
     private System.Threading.Timer? _ticker;
+    private bool _shuttingDown;
 
     public MainWindow()
     {
@@ -39,6 +40,10 @@ public sealed partial class MainWindow : Window
 
         ApplyCardBackgrounds();
         UpdateState();
+
+        // 关键：主窗口被关闭（点 ×、Alt+F4、任务管理器结束）时必须收掉悬浮窗。
+        // 之前没有挂这个事件，导致主窗关掉后悬浮窗变成孤儿窗口、一直挂在桌面上关不掉。
+        Closed += (_, _) => Shutdown();
     }
 
     /// <summary>卡片背景跟随系统深浅色。</summary>
@@ -164,6 +169,9 @@ public sealed partial class MainWindow : Window
     {
         _clock = null;
 
+        // 主程序正在退出时不需要再改界面，也不需要再撤销一次
+        if (_shuttingDown) return;
+
         if (_task is not null && !_task.Cancelled)
             CancelTask("已关闭倒计时窗口，定时任务已取消。");
     }
@@ -284,11 +292,22 @@ public sealed partial class MainWindow : Window
         CancelTaskButton.Visibility = Visibility.Visible;
     }
 
-    /// <summary>主窗口关闭时一并收掉悬浮窗与计时器。</summary>
+    /// <summary>主窗口关闭时一并收掉悬浮窗与计时器，避免留下孤儿窗口。</summary>
     public void Shutdown()
     {
+        _shuttingDown = true;
+
         _ticker?.Dispose();
         _ticker = null;
+
+        // 主程序退出：若还有未执行的排定，先把系统计时器撤掉，
+        // 否则窗口关了但关机仍在队列里，用户会以为"取消"没生效。
+        var task = _task;
+        if (task is not null && !task.Cancelled && task.Action.UsesSystemTimer())
+            PowerService.AbortSystemShutdown(out _);
+        if (task is not null) task.Cancelled = true;
+        _task = null;
+
         CloseClockByOwner();
     }
 }

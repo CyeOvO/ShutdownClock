@@ -16,6 +16,11 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         _window = new MainWindow();
+
+        // 主窗口关掉就等于退出程序：WinUI 3 不会自动退出，
+        // 不显式 Exit 的话悬浮窗就算关了，进程也可能挂在后台。
+        _window.Closed += (_, _) => Exit();
+
         _window.Activate();
     }
 

@@ -13,9 +13,9 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.3.0</Version>
-    <AssemblyVersion>0.3.0.0</AssemblyVersion>
-    <FileVersion>0.3.0.0</FileVersion>
+    <Version>0.3.1</Version>
+    <AssemblyVersion>0.3.1.0</AssemblyVersion>
+    <FileVersion>0.3.1.0</FileVersion>
     <Authors>ShutdownClock contributors</Authors>
     <Description>定时关机 / 重启 / 休眠 / 睡眠工具（WinUI 3）</Description>
     <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
