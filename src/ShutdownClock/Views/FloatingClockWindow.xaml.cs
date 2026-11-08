@@ -1,23 +1,28 @@
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Animation;
 using System.Windows.Shapes;
-using ShutdownClock.Controls;
 using ShutdownClock.Models;
 
 namespace ShutdownClock.Views;
 
 public partial class FloatingClockWindow : Window
 {
-    private readonly FlipClock _flip = new();
+    /// <summary>圆环几何基准尺寸：正方形边长 150，环直径 = 150。</summary>
+    private const double RingSize = 150;
+    private const double RingThickness = 10;
+
     private System.Threading.Timer? _ticker;
-    private CountdownStyle _style = CountdownStyle.FlipClock;
+    private CountdownStyle _style = CountdownStyle.BigDigits;
     private bool _isShrunk;
     private Rect _restoreBounds;
 
     public ScheduledTask? Task { get; private set; }
+
+    /// <summary>由主窗口主动关闭（取消 / 完成）时置 true，用来区分"用户点了关闭"。</summary>
+    public bool ClosedByOwner { get; set; }
 
     /// <summary>用户点"取消"时触发。</summary>
     public event EventHandler? CancelRequested;
@@ -28,11 +33,10 @@ public partial class FloatingClockWindow : Window
     public FloatingClockWindow()
     {
         InitializeComponent();
-        FlipHost.Content = _flip;
 
-        // 记住原有位置，缩小后能还原
         _restoreBounds = new Rect(Left, Top, Width, Height);
 
+        ApplyTheme();
         Loaded += OnLoaded;
         Closed += OnClosed;
         MouseEnter += (_, _) => SetBarOpacity(1);
@@ -40,6 +44,43 @@ public partial class FloatingClockWindow : Window
 
         ApplyStyle(_style);
         MoveToCorner();
+    }
+
+    /// <summary>按系统深色 / 浅色模式套用配色，避免深底深字或白底白字。</summary>
+    private void ApplyTheme()
+    {
+        var dark = Services.Theme.IsDark;
+
+        RootBorder.Background = dark ? Brush("#E6101014") : Brush("#F2FFFFFF");
+        RootBorder.BorderBrush = dark ? Brush("#33FFFFFF") : Brush("#22000000");
+
+        TitleText.Foreground = dark ? Brush("#CCFFFFFF") : Brush("#CC000000");
+        StatusText.Foreground = dark ? Brush("#99FFFFFF") : Brush("#99000000");
+
+        BigDigits.Foreground = dark ? Brushes.White : Brush("#FF1A1A1F");
+        MinimalText.Foreground = dark ? Brush("#FFB4B4C0") : Brush("#FF5A5A66");
+        RingText.Foreground = dark ? Brushes.White : Brush("#FF1A1A1F");
+
+        RingTrackCircle.Stroke = dark ? Brush("#33FFFFFF") : Brush("#33000000");
+        RingArc.Stroke = dark ? Brush("#FF5AC8FA") : Brush("#FF1A73E8");
+
+        if (dark)
+        {
+            foreach (var b in new[] { StyleButton, PinButton, CancelButton, MinButton })
+                b.Foreground = Brushes.White;
+        }
+        else
+        {
+            foreach (var b in new[] { StyleButton, PinButton, CancelButton, MinButton })
+                b.Foreground = Brush("#FF1A1A1F");
+        }
+    }
+
+    private static SolidColorBrush Brush(string hex)
+    {
+        var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
+        b.Freeze();
+        return b;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -77,13 +118,11 @@ public partial class FloatingClockWindow : Window
 
     private void ApplyStyle(CountdownStyle style)
     {
-        FlipHost.Visibility = style == CountdownStyle.FlipClock ? Visibility.Visible : Visibility.Collapsed;
         BigDigits.Visibility = style == CountdownStyle.BigDigits ? Visibility.Visible : Visibility.Collapsed;
         RingHost.Visibility = style == CountdownStyle.ProgressRing ? Visibility.Visible : Visibility.Collapsed;
         MinimalText.Visibility = style == CountdownStyle.Minimal ? Visibility.Visible : Visibility.Collapsed;
         StyleButton.Content = style switch
         {
-            CountdownStyle.FlipClock => "翻页",
             CountdownStyle.BigDigits => "大字",
             CountdownStyle.ProgressRing => "进度环",
             _ => "极简"
@@ -98,14 +137,11 @@ public partial class FloatingClockWindow : Window
         var left = task.Target - DateTime.Now;
         if (left < TimeSpan.Zero) left = TimeSpan.Zero;
 
-        _flip.Update(left);
-
         var text = Format(left);
         BigDigits.Text = text;
         RingText.Text = text;
         MinimalText.Text = $"{task.Action.ToDisplay()} 还有 {text}";
 
-        // 进度环
         var progress = task.Total.TotalSeconds > 0
             ? Math.Clamp(1 - left.TotalSeconds / task.Total.TotalSeconds, 0, 1)
             : 1;
@@ -116,26 +152,44 @@ public partial class FloatingClockWindow : Window
         Tick?.Invoke(this, left);
     }
 
+    /// <summary>
+    /// 画进度弧。半径取 (正方形边长 - 线宽)/2，使圆环外沿正好填满 150×150 的正方形，
+    /// 即"背景是与环直径相等的正方形"。
+    /// </summary>
     private void DrawRing(double progress)
     {
-        const double size = 130, radius = size / 2, cx = 10 + radius, cy = 10 + radius;
+        var radius = (RingSize - RingThickness) / 2;
+        var cx = RingSize / 2;
+        var cy = RingSize / 2;
+
+        // 底环同样按这个半径对齐
+        RingTrackCircle.Width = radius * 2;
+        RingTrackCircle.Height = radius * 2;
+
         if (progress <= 0)
         {
             RingArc.Data = Geometry.Empty;
             return;
         }
+
+        if (progress >= 1)
+        {
+            // 满环直接用整圆，避免起点终点重合时 ArcSegment 画不出东西
+            RingArc.Data = new EllipseGeometry(new Point(cx, cy), radius, radius);
+            return;
+        }
+
         var angle = 360 * progress;
         var rad = (angle - 90) * Math.PI / 180;
         var x = cx + radius * Math.Cos(rad);
         var y = cy + radius * Math.Sin(rad);
-        var isLarge = angle > 180 ? 1 : 0;
 
         var fig = new PathFigure { StartPoint = new Point(cx, cy - radius), IsClosed = false };
         fig.Segments.Add(new ArcSegment
         {
             Point = new Point(x, y),
             Size = new Size(radius, radius),
-            IsLargeArc = isLarge == 1,
+            IsLargeArc = angle > 180,
             SweepDirection = SweepDirection.Clockwise
         });
 
@@ -159,7 +213,6 @@ public partial class FloatingClockWindow : Window
     {
         if (_isShrunk)
         {
-            // 缩小状态下拖动整窗
             try { DragMove(); } catch { }
             SavePosition();
         }
@@ -175,10 +228,9 @@ public partial class FloatingClockWindow : Window
     {
         _style = _style switch
         {
-            CountdownStyle.FlipClock => CountdownStyle.BigDigits,
             CountdownStyle.BigDigits => CountdownStyle.ProgressRing,
             CountdownStyle.ProgressRing => CountdownStyle.Minimal,
-            _ => CountdownStyle.FlipClock
+            _ => CountdownStyle.BigDigits
         };
         ApplyStyle(_style);
         Refresh();

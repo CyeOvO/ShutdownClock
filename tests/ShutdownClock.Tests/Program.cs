@@ -82,6 +82,12 @@ internal static class Program
         Check("睡眠不使用系统计时", !PowerAction.Sleep.UsesSystemTimer());
         Check("中文显示名", PowerAction.Shutdown.ToDisplay() == "关机");
 
+
+        Console.WriteLine("CountdownStyle");
+        var styles = Enum.GetNames<CountdownStyle>();
+        Check("共 3 种样式（翻页已移除）", styles.Length == 3, string.Join(",", styles));
+        Check("不含 FlipClock", !styles.Contains("FlipClock"));
+        Check("默认样式为 BigDigits", Enum.GetValues<CountdownStyle>()[0] == CountdownStyle.BigDigits);
         Console.WriteLine();
         Console.WriteLine($"通过 {_pass}，失败 {_fail}");
         Environment.Exit(_fail == 0 ? 0 : 1);

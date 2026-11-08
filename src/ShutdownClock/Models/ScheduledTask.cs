@@ -6,8 +6,6 @@ namespace ShutdownClock.Models;
 /// <summary>倒计时显示样式。</summary>
 public enum CountdownStyle
 {
-    /// <summary>翻页时钟：时 / 分 / 秒 三组翻牌。</summary>
-    FlipClock,
     /// <summary>大字倒计时：HH:MM:SS 单行。</summary>
     BigDigits,
     /// <summary>进度环：环形进度 + 中心数字。</summary>

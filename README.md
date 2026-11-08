@@ -1,7 +1,7 @@
-# ShutdownClock · 翻页时钟定时关机
+# ShutdownClock · 定时关机
 
 一个 Windows 桌面小工具：选好时间，到点自动**关机 / 重启 / 休眠 / 睡眠**。
-倒计时用**翻页时钟**呈现，窗口可以缩到很小、贴在屏幕角落，随时能看到时间在流逝，又不会挡着工作。
+倒计时小窗可以缩到很小、贴在屏幕角落，随时能看到时间在流逝，又不会挡着工作。
 
 > 这是把「定时关机」和「休眠倒计时」两个小工具合并重做的一版，界面与实现全部重写。
 
@@ -13,11 +13,14 @@
   - `23:30`：今天（若已过则自动顺延到明天）
   - `+90` / `+2h` / `+30s`：相对时间
   - 也可以点快捷按钮：5 / 15 / 30 / 60 / 120 分钟
-- **四种倒计时样式**：翻页时钟、大号数字、进度环、极简文字
+- **三种倒计时样式**：大号数字、进度环、极简文字
+- **跟随系统深浅色**：深色模式深底白字，浅色模式白底深字，不会出现白底白字
 - **悬浮小窗**
   - 始终置顶，可拖到屏幕任意角落
   - 支持缩到 220×100，不遮挡工作区
   - 不抢焦点（`WS_EX_NOACTIVATE`），打字时不会被打断
+  - 进度环样式使用正方形画布，环直径等于容器边长
+  - 关掉悬浮窗即视为取消本次定时，主窗倒计时同步停止
 - **可靠计时**：按绝对截止时间计算，不受系统卡顿、休眠唤醒影响
 - **关机/重启交给系统计时**：即使关掉本程序，到点依然会关机
 
@@ -41,11 +44,15 @@ cd ShutdownClock
 dotnet build ShutdownClock.sln -c Release
 ```
 
-运行测试（27 项核心逻辑测试）：
+运行测试：
 
-```bash
+'```bash
+# 核心逻辑测试（30 项）
 dotnet run --project tests/ShutdownClock.Tests
-```
+
+# 本次改动验证（20 项：样式枚举、窗口关闭语义、进度环几何、主题对比度）
+dotnet run --project tests/ShutdownClock.Verify
+```'
 
 发布单文件 exe：
 
@@ -66,14 +73,15 @@ ShutdownClock/
 │  ├─ Services/
 │  │  ├─ NativePower.cs        Win32 关机 / 挂起 API
 │  │  ├─ PowerService.cs       电源操作入口（API + shutdown.exe 双路径）
-│  │  └─ ElevationService.cs   管理员权限检测与提权
-│  ├─ Controls/
-│  │  └─ FlipClock.cs          翻页时钟控件
+│  │  ├─ ElevationService.cs   管理员权限检测与提权
+│  │  └─ Theme.cs              跟随系统深浅色的配色
 │  ├─ Views/
 │  │  ├─ MainWindow.xaml       设置界面
 │  │  └─ FloatingClockWindow.xaml  悬浮倒计时小窗
 │  └─ app.manifest             DPI 感知 + requireAdministrator
-└─ tests/ShutdownClock.Tests/  不依赖测试框架的极简运行器
+└─ tests/
+   ├─ ShutdownClock.Tests/    核心逻辑测试（不依赖测试框架）
+   └─ ShutdownClock.Verify/   界面与主题改动的验证
 ```
 
 ## 实现要点

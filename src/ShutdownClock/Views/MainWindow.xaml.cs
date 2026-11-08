@@ -1,6 +1,8 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using ShutdownClock.Models;
 using ShutdownClock.Services;
 
@@ -15,10 +17,115 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        ApplyTheme();
         TimeBox.Text = DateTime.Now.AddMinutes(30).ToString("yyyy-MM-dd HH:mm");
         // 清单已声明 requireAdministrator，正常情况总是已提权；保守起见仍做检测
         if (!ElevationService.IsAdministrator()) ElevateBar.Visibility = Visibility.Visible;
         UpdateState();
+    }
+
+    /// <summary>
+    /// 按系统深色 / 浅色模式套用配色。
+    /// 之前 XAML 里写死了深色（#141418 底 + 白字），在系统浅色模式下会出现
+    /// 白底白字看不见的问题，这里统一改为跟随主题。
+    /// </summary>
+    private void ApplyTheme()
+    {
+        Theme.Refresh();
+        var dark = Theme.IsDark;
+
+        Background = Theme.WindowBackground;
+        Foreground = Theme.Foreground;
+
+        // 标题
+        AppTitle.Foreground = Theme.Foreground;
+        AppSubtitle.Foreground = Theme.SubtleForeground;
+
+        // 四张卡片
+        foreach (var card in new[] { ActionCard, TimeCard, StyleCard, StateCard })
+            card.Background = Theme.CardBackground;
+
+        // 分区小标题
+        foreach (var label in new[] { ActionLabel, TimeLabel, StyleLabel, StateLabel })
+            label.Foreground = Theme.SubtleForeground;
+
+        // 说明文字
+        FormatHint.Foreground = Theme.FaintForeground;
+        QuickLabel.Foreground = Theme.FaintForeground;
+        HintText.Foreground = Theme.SubtleForeground;
+
+        // 动作单选
+        foreach (var rb in new[] { RbShutdown, RbRestart, RbHibernate, RbSleep })
+            rb.Foreground = Theme.Foreground;
+
+        // 输入框
+        TimeBox.Background = Theme.InputBackground;
+        TimeBox.Foreground = Theme.InputForeground;
+        TimeBox.BorderBrush = Theme.InputBorder;
+        TimeBox.CaretBrush = Theme.InputForeground;
+
+        // 快捷按钮
+        foreach (var b in FindVisualChildren<Button>(this))
+        {
+            if (b.Style == (Style)FindResource("IconQuick"))
+            {
+                b.Background = Theme.ButtonBackground;
+                b.Foreground = Theme.ButtonForeground;
+            }
+        }
+
+        // 状态文字
+        StateText.Foreground = Theme.FaintForeground;
+
+        // 下拉框（WPF 默认模板在深色模式下会白底白字，这里显式设置）
+        StyleBox.Background = Theme.InputBackground;
+        StyleBox.Foreground = Theme.InputForeground;
+        StyleBox.BorderBrush = Theme.InputBorder;
+
+        // 「恢复已排定的系统关机」是次要动作，跟着主题走
+        AbortButton.Background = dark ? Brush("#FF3A3A44") : Brush("#FFE0E0E6");
+        AbortButton.Foreground = dark ? Brushes.White : Brush("#FF1A1A1F");
+    }
+
+    private static SolidColorBrush Brush(string hex)
+    {
+        var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
+        b.Freeze();
+        return b;
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject root) where T : DependencyObject
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T t) yield return t;
+            foreach (var sub in FindVisualChildren<T>(child)) yield return sub;
+        }
+    }
+
+    /// <summary>系统在窗口显示后切换主题时，微软会广播这条消息，这里同步刷新。</summary>
+    private const int WM_SETTINGCHANGE = 0x001A;
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        var source = (System.Windows.Interop.HwndSource)PresentationSource.FromVisual(this)!;
+        source.AddHook(WndProc);
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_SETTINGCHANGE && lParam != IntPtr.Zero)
+        {
+            var area = Marshal.PtrToStringAuto(lParam);
+            if (string.Equals(area, "ImmersiveColorSet", StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyTheme();
+            }
+        }
+        return IntPtr.Zero;
     }
 
     private PowerAction SelectedAction =>
@@ -29,10 +136,9 @@ public partial class MainWindow : Window
 
     private CountdownStyle SelectedStyle => StyleBox.SelectedIndex switch
     {
-        1 => CountdownStyle.BigDigits,
-        2 => CountdownStyle.ProgressRing,
-        3 => CountdownStyle.Minimal,
-        _ => CountdownStyle.FlipClock
+        1 => CountdownStyle.ProgressRing,
+        2 => CountdownStyle.Minimal,
+        _ => CountdownStyle.BigDigits
     };
 
     // ---------- 快捷按钮 ----------
@@ -123,11 +229,15 @@ public partial class MainWindow : Window
             _clock.CancelRequested += (_, _) => CancelTask();
             _clock.Closed += (_, _) =>
             {
+                var closing = _clock;
                 _clock = null;
-                // 悬浮窗被关掉但任务还在跑：关机/重启仍由系统计时，其它动作已无人等待，需提示
-                if (_task is not null && !_task.Cancelled && !_task.Action.UsesSystemTimer())
+
+                // 用户直接关掉悬浮窗 = 取消本次排定，主窗倒计时同步停止。
+                // Finish / CancelTask 主动关闭窗口的情况已在 _clock 置空前处理掉，不会走到这里重复取消。
+                if (closing is not null && !closing.ClosedByOwner
+                    && _task is not null && !_task.Cancelled)
                 {
-                    HintText.Text = "悬浮窗已关闭，休眠/睡眠已无法自动执行，请取消后重设。";
+                    CancelTask("已关闭倒计时窗口，定时任务已取消。");
                 }
             };
         }
@@ -179,12 +289,7 @@ public partial class MainWindow : Window
     {
         StateText.Text = message;
         CancelTaskButton.Visibility = Visibility.Collapsed;
-        try
-        {
-            if (_clock is not null) _clock.Close();
-        }
-        catch { }
-        _clock = null;
+        CloseClockByOwner();
         _task = null;
     }
 
@@ -192,7 +297,7 @@ public partial class MainWindow : Window
 
     private void OnCancelTask(object sender, RoutedEventArgs e) => CancelTask();
 
-    private void CancelTask()
+    private void CancelTask(string message = "已取消该定时任务。")
     {
         var task = _task;
         if (task is null) return;
@@ -205,9 +310,19 @@ public partial class MainWindow : Window
             PowerService.AbortSystemShutdown(out _);
 
         _task = null;
-        try { _clock?.Close(); } catch { }
+        CloseClockByOwner();
+        UpdateState(message);
+    }
+
+    /// <summary>由本程序主动关闭悬浮窗（不是用户点的关闭），不触发"关闭即取消"。</summary>
+    private void CloseClockByOwner()
+    {
+        var clock = _clock;
         _clock = null;
-        UpdateState("已取消该定时任务。");
+        if (clock is null) return;
+
+        clock.ClosedByOwner = true;
+        try { clock.Close(); } catch { }
     }
 
     private void OnStyleChanged(object sender, SelectionChangedEventArgs e)
@@ -251,7 +366,7 @@ public partial class MainWindow : Window
     {
         _ticker?.Dispose();
         _ticker = null;
-        try { _clock?.Close(); } catch { }
+        CloseClockByOwner();
         base.OnClosed(e);
     }
 }

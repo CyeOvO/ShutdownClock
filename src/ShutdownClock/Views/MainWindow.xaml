@@ -4,8 +4,6 @@
         Title="ShutdownClock · 定时关机 / 休眠"
         Height="640" Width="560"
         WindowStartupLocation="CenterScreen"
-        Background="#141418"
-        Foreground="#E8E8EE"
         FontFamily="Microsoft YaHei UI, Segoe UI">
 
     <Window.Resources>
@@ -36,9 +34,8 @@
             </Setter>
         </Style>
 
+        <!-- 普通按钮：颜色由代码后置按主题注入 -->
         <Style TargetType="Button" x:Key="IconQuick">
-            <Setter Property="Background" Value="#252530"/>
-            <Setter Property="Foreground" Value="#E8E8EE"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="10,5"/>
             <Setter Property="Margin" Value="0,0,6,0"/>
@@ -53,7 +50,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#33FFFFFF"/>
+                                <Setter TargetName="bd" Property="Background" Value="#33808080"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -65,25 +62,18 @@
             <Setter Property="Margin" Value="0,0,14,0"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Foreground" Value="#E8E8EE"/>
         </Style>
 
+        <!-- 输入框：颜色由代码后置按主题注入 -->
         <Style TargetType="TextBox" x:Key="TimeBox">
-            <Setter Property="Background" Value="#1E1E24"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
-            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="10,8"/>
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontFamily" Value="Consolas, Microsoft YaHei UI"/>
-            <Setter Property="CaretBrush" Value="White"/>
         </Style>
 
-        <Style TargetType="ComboBox">
-            <Setter Property="Background" Value="#1E1E24"/>
-            <Setter Property="Foreground" Value="#FFFFFF"/>
+        <Style TargetType="ComboBoxItem">
             <Setter Property="Padding" Value="8,6"/>
-            <Setter Property="FontSize" Value="14"/>
         </Style>
     </Window.Resources>
 
@@ -107,7 +97,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Foreground="#FFFFCC80" FontSize="12" TextWrapping="Wrap"
+                <TextBlock Grid.Column="0" Foreground="#FFB25E00" FontSize="12" TextWrapping="Wrap"
                            VerticalAlignment="Center"
                            Text="当前不是管理员权限，关机 / 重启可能失败。请关闭后右键选择“以管理员身份运行”。"/>
                 <Button Grid.Column="1" Content="尝试提权重启" Style="{StaticResource PrimaryButton}"
@@ -117,15 +107,15 @@
 
         <!-- 标题 -->
         <StackPanel Grid.Row="1" Margin="0,0,0,18">
-            <TextBlock Text="ShutdownClock" FontSize="22" FontWeight="Bold"/>
-            <TextBlock Text="翻页时钟风格的定时关机 / 重启 / 休眠 / 睡眠"
-                       Foreground="#99FFFFFF" FontSize="12" Margin="0,4,0,0"/>
+            <TextBlock x:Name="AppTitle" Text="ShutdownClock" FontSize="22" FontWeight="Bold"/>
+            <TextBlock x:Name="AppSubtitle" Text="定时关机 / 重启 / 休眠 / 睡眠"
+                       FontSize="12" Margin="0,4,0,0"/>
         </StackPanel>
 
         <!-- 动作选择 -->
-        <Border Grid.Row="2" Background="#1A1A20" CornerRadius="8" Padding="16" Margin="0,0,0,14">
+        <Border x:Name="ActionCard" Grid.Row="2" CornerRadius="8" Padding="16" Margin="0,0,0,14">
             <StackPanel>
-                <TextBlock Text="1. 选择要执行的动作" Foreground="#99FFFFFF" FontSize="12" Margin="0,0,0,10"/>
+                <TextBlock x:Name="ActionLabel" Text="1. 选择要执行的动作" FontSize="12" Margin="0,0,0,10"/>
                 <WrapPanel>
                     <RadioButton x:Name="RbShutdown" Style="{StaticResource ActionRadio}"
                                  Content="关机" IsChecked="True" GroupName="Action"/>
@@ -140,9 +130,9 @@
         </Border>
 
         <!-- 时间输入 -->
-        <Border Grid.Row="3" Background="#1A1A20" CornerRadius="8" Padding="16" Margin="0,0,0,14">
+        <Border x:Name="TimeCard" Grid.Row="3" CornerRadius="8" Padding="16" Margin="0,0,0,14">
             <StackPanel>
-                <TextBlock Text="2. 选择时间" Foreground="#99FFFFFF" FontSize="12" Margin="0,0,0,10"/>
+                <TextBlock x:Name="TimeLabel" Text="2. 选择时间" FontSize="12" Margin="0,0,0,10"/>
 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -156,11 +146,11 @@
                             Margin="8,0,0,0" Click="OnStartClick"/>
                 </Grid>
 
-                <TextBlock Foreground="#77FFFFFF" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"
+                <TextBlock x:Name="FormatHint" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"
                            Text="写法：2026-11-10 23:30（完整）／23:30（今天，已过则顺延明天）／+90（90 分钟后）／+2h／+30s"/>
 
                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                    <TextBlock Text="快捷：" Foreground="#77FFFFFF" FontSize="12" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="QuickLabel" Text="快捷：" FontSize="12" VerticalAlignment="Center"/>
                     <Button Content="5 分钟" Style="{StaticResource IconQuick}" Click="OnQuick5"/>
                     <Button Content="15 分钟" Style="{StaticResource IconQuick}" Click="OnQuick15"/>
                     <Button Content="30 分钟" Style="{StaticResource IconQuick}" Click="OnQuick30"/>
@@ -171,12 +161,11 @@
         </Border>
 
         <!-- 显示样式 -->
-        <Border Grid.Row="4" Background="#1A1A20" CornerRadius="8" Padding="16" Margin="0,0,0,14">
+        <Border x:Name="StyleCard" Grid.Row="4" CornerRadius="8" Padding="16" Margin="0,0,0,14">
             <StackPanel>
-                <TextBlock Text="3. 倒计时显示样式" Foreground="#99FFFFFF" FontSize="12" Margin="0,0,0,10"/>
-                <ComboBox x:Name="StyleBox" SelectionChanged="OnStyleChanged">
-                    <ComboBoxItem Content="翻页时钟（时:分:秒 三组翻牌）" IsSelected="True"/>
-                    <ComboBoxItem Content="大字倒计时（单行 HH:MM:SS）"/>
+                <TextBlock x:Name="StyleLabel" Text="3. 倒计时显示样式" FontSize="12" Margin="0,0,0,10"/>
+                <ComboBox x:Name="StyleBox" SelectionChanged="OnStyleChanged" FontSize="14" Padding="8,6">
+                    <ComboBoxItem Content="大字倒计时（单行 HH:MM:SS）" IsSelected="True"/>
                     <ComboBoxItem Content="进度环（环形进度 + 中心数字）"/>
                     <ComboBoxItem Content="极简一行（仅文字）"/>
                 </ComboBox>
@@ -184,10 +173,10 @@
         </Border>
 
         <!-- 当前任务 / 日志 -->
-        <Border Grid.Row="5" Background="#1A1A20" CornerRadius="8" Padding="16">
+        <Border x:Name="StateCard" Grid.Row="5" CornerRadius="8" Padding="16">
             <StackPanel>
-                <TextBlock Text="当前任务" Foreground="#99FFFFFF" FontSize="12" Margin="0,0,0,8"/>
-                <TextBlock x:Name="StateText" Text="尚未排定任务" Foreground="#77FFFFFF"
+                <TextBlock x:Name="StateLabel" Text="当前任务" FontSize="12" Margin="0,0,0,8"/>
+                <TextBlock x:Name="StateText" Text="尚未排定任务"
                            FontSize="13" TextWrapping="Wrap"/>
                 <Button x:Name="CancelTaskButton" Content="取消当前任务" Style="{StaticResource PrimaryButton}"
                         Margin="0,12,0,0" HorizontalAlignment="Left"
@@ -197,10 +186,10 @@
 
         <!-- 底部 -->
         <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <TextBlock x:Name="HintText" Foreground="#99FFFFFF" VerticalAlignment="Center"
+            <TextBlock x:Name="HintText" VerticalAlignment="Center"
                        Margin="0,0,14,0" FontSize="12"/>
-            <Button Content="恢复已排定的系统关机" Style="{StaticResource PrimaryButton}"
-                    Background="#FF3A3A44" Click="OnAbortSystem"/>
+            <Button x:Name="AbortButton" Content="恢复已排定的系统关机" Style="{StaticResource PrimaryButton}"
+                    Click="OnAbortSystem"/>
         </StackPanel>
     </Grid>
 </Window>
